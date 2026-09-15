@@ -5,7 +5,7 @@ import faiss
 import numpy as np
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
-from mistralai import Mistral
+from mistralai.client import Mistral
 
 from crisis import contains_crisis_keywords, SAFETY_MESSAGE
 from logger import log_chat
