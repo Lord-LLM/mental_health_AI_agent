@@ -1,4 +1,6 @@
 import os
+import time
+import threading
 import uuid
 import fitz
 import faiss
@@ -20,6 +22,15 @@ MODEL_NAME = "mistral-small-2603"
 BOOKS_FOLDER = "books"
 CHUNK_SIZE = 2048
 TOP_K = 2
+
+# Free-tier rate limit is 1 request/second, shared across every session of
+# this deployed app. Serialize calls so concurrent users don't trip it.
+MIN_CALL_INTERVAL = 1.1  # small buffer above the 1 RPS ceiling
+MAX_RETRIES = 3
+BASE_BACKOFF = 2.0  # seconds
+
+_call_lock = threading.Lock()
+_last_call_time = 0.0
 
 # Mistral client
 api_key = os.getenv("MISTRAL_API_KEY")
@@ -84,10 +95,40 @@ chunks = [_text[i:i + CHUNK_SIZE] for i in range(0, len(_text), CHUNK_SIZE)]
 index, _dim = build_index(chunks)
 
 
+def _wait_for_rate_limit():
+    """Block until at least MIN_CALL_INTERVAL seconds have passed since the
+    last API call, across all threads/sessions sharing this process."""
+    global _last_call_time
+    with _call_lock:
+        now = time.monotonic()
+        elapsed = now - _last_call_time
+        if elapsed < MIN_CALL_INTERVAL:
+            time.sleep(MIN_CALL_INTERVAL - elapsed)
+        _last_call_time = time.monotonic()
+
+
+def _is_rate_limit_error(err: Exception) -> bool:
+    text = str(err).lower()
+    return "429" in text or "rate_limited" in text or "rate limit" in text
+
+
 def run_mistral(user_message: str, model_name: str = MODEL_NAME) -> str:
     messages = [{"role": "user", "content": user_message}]
-    response = client.chat.complete(model=model_name, messages=messages)
-    return response.choices[0].message.content
+
+    for attempt in range(MAX_RETRIES + 1):
+        _wait_for_rate_limit()
+        try:
+            response = client.chat.complete(model=model_name, messages=messages)
+            return response.choices[0].message.content
+        except Exception as e:
+            if _is_rate_limit_error(e) and attempt < MAX_RETRIES:
+                backoff = BASE_BACKOFF * (2 ** attempt)
+                print(f"Rate limited, retrying in {backoff:.1f}s (attempt {attempt + 1}/{MAX_RETRIES})")
+                time.sleep(backoff)
+                continue
+            raise
+
+    raise RuntimeError("Mistral API rate limit exceeded after retries.")
 
 
 def _build_prompt(question: str) -> str:
