@@ -1,2 +1,6 @@
 .env
 books
+.history
+.dist
+.venv
+_pycache__

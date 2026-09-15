@@ -1,63 +1,101 @@
+import os
+
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+
 import streamlit as st
 from therapist_ai import run_chat
 from crisis import SAFETY_MESSAGE
 
-# Page Configuration 
+# Page configuration
 st.set_page_config(
-    page_title="Mental Health AI Agent 🧠",
-    page_icon="🧠",
+    page_title="Mental Health AI Agent",
+    page_icon=":speech_balloon:",
     layout="wide",
 )
 
-# Header 
+# Minimal styling
 st.markdown(
     """
-    <h1 style='text-align: center; color: #4B8BBE;'>🧠 Mental Health AI Agent</h1>
-    <p style='text-align: center;'>A supportive and safe space powered by AI — built with ❤️ for wellness.</p>
+    <style>
+        .app-title {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 600;
+            color: #4B8BBE;
+            margin-bottom: 0.25rem;
+        }
+        .app-subtitle {
+            text-align: center;
+            color: #6b7280;
+            margin-bottom: 1.5rem;
+        }
+        .stat-box {
+            background-color: rgba(75, 139, 190, 0.08);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+        }
+    </style>
+    <div class="app-title">Mental Health AI Agent</div>
+    <div class="app-subtitle">A supportive, private space to talk things through.</div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
-# Initialize Session State 
+# Session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Sidebar 
+# Sidebar
 with st.sidebar:
-    st.title("ℹ️ About")
-    st.markdown("This AI agent uses advanced language models to offer mental health support, conversation, and guidance.")
+    st.subheader("About")
+    st.write(
+        "This assistant uses a language model to offer supportive conversation "
+        "and general guidance. It is not a substitute for professional care."
+    )
     st.markdown(SAFETY_MESSAGE)
 
-    # Chat tracker
-    user_msgs = sum(1 for m in st.session_state["messages"] if m["role"] == "user")
-    ai_msgs = sum(1 for m in st.session_state["messages"] if m["role"] == "ai")
-    st.markdown(f"**💬 Messages:** {user_msgs + ai_msgs}")
-    st.markdown(f"- You: {user_msgs}")
-    st.markdown(f"- AI: {ai_msgs}")
+    user_msgs = sum(1 for m in st.session_state.messages if m["role"] == "user")
+    ai_msgs = sum(1 for m in st.session_state.messages if m["role"] == "assistant")
 
-# Create a placeholder for the chat display
-chat_placeholder = st.empty()
+    st.markdown(
+        f"""
+        <div class="stat-box">
+            <strong>Messages:</strong> {user_msgs + ai_msgs}<br>
+            You: {user_msgs} &nbsp;&middot;&nbsp; Assistant: {ai_msgs}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-# Chat Input 
-with st.form(key="chat_form", clear_on_submit=True):
-    user_input = st.text_input("Type your message:", key="user_input", placeholder="What's on your mind?")
-    submitted = st.form_submit_button("Send")
+    if st.session_state.messages and st.button("Clear conversation"):
+        st.session_state.messages = []
+        st.rerun()
 
-    if submitted and user_input.strip():
-        st.session_state.messages.append({"role": "user", "content": user_input})
+# Chat history
+st.subheader("Chat")
 
-        with st.spinner("AI is thinking..."):
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# Chat input
+user_input = st.chat_input("What's on your mind?")
+
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
             try:
                 ai_response = run_chat(user_input)
             except Exception as e:
-                ai_response = "⚠️ Sorry, something went wrong. Please try again later."
+                ai_response = "Sorry, something went wrong on my end. Please try again in a moment."
                 st.error(f"Error: {e}")
+        st.markdown(ai_response)
 
-        st.session_state.messages.append({"role": "ai", "content": ai_response})
-
-# Update the placeholder with the current chat messages
-with chat_placeholder:
-    st.markdown("### 💬 Chat with the AI Therapist")
-    for msg in st.session_state.messages:
-        role = "🧑 You" if msg["role"] == "user" else "🤖 AI"
-        st.markdown(f"**{role}:** {msg['content']}")
+    st.session_state.messages.append({"role": "assistant", "content": ai_response})

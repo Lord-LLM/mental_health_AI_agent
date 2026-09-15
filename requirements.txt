@@ -4,6 +4,7 @@ sentence-transformers
 faiss-cpu
 python-dotenv
 transformers
+torchvision
 PyMuPDF
 numpy
 requests
