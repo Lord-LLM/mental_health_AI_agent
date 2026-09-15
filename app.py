@@ -94,7 +94,10 @@ if user_input:
             try:
                 ai_response = run_chat(user_input)
             except Exception as e:
-                ai_response = "Sorry, something went wrong on my end. Please try again in a moment."
+                if "429" in str(e) or "rate" in str(e).lower():
+                    ai_response = "I'm getting a lot of requests right now. Please wait a few seconds and try again."
+                else:
+                    ai_response = "Sorry, something went wrong on my end. Please try again in a moment."
                 st.error(f"Error: {e}")
         st.markdown(ai_response)
 
