@@ -16,7 +16,7 @@ load_dotenv()
 # Therapist system prompt
 THERAPIST_PREFIX = "You are a compassionate therapist who speaks in a calm and understanding tone."
 
-MODEL_NAME = "mistral-large-2512"
+MODEL_NAME = "mistral-small-2603"
 BOOKS_FOLDER = "books"
 CHUNK_SIZE = 2048
 TOP_K = 2
