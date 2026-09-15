@@ -1,4 +1,4 @@
-# Mental Health AI Agent 🧠
+# Mental Health AI Agent 
 
 A supportive and safe space powered by AI, designed to provide mental health support, conversation, and guidance through an interactive chatbot interface.
 
